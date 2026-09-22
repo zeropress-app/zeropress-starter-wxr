@@ -1,5 +1,6 @@
 {
   "name": "zeropress-starter-wxr",
+  "version": "0.7.0",
   "description": "Try ZeroPress with a WordPress WXR export and your existing WordPress resources",
   "private": true,
   "license": "MIT",
