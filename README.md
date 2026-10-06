@@ -72,8 +72,8 @@ or `public/` changes. A failed import keeps the last successful preview.
 | `npm run format:wrangler` | Format `wrangler.jsonc` |
 
 Site information and the comment API address are inferred from the export.
-`wxr-import-base.json` keeps the trial out of search indexes and leaves the new
-site URL empty, so no domain setup is required. Generated Preview Data lives in
+`wxr-import-base.json` disallows crawling by default and leaves the new site URL
+empty, so no domain setup is required. Generated Preview Data lives in
 `.zeropress-wxr/`, outside the published files, and is excluded from Git.
 
 ## License
