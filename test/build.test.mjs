@@ -19,7 +19,7 @@ test('converts WordPress content offline and preserves original media, links, an
   const page = await readFile(join(root, 'dist/about/index.html'), 'utf8');
   assert.match(page, /data-zp-comments-target-type="page"/);
   assert.match(page, /data-zp-comments-target-public-id="201"/);
-  const data = JSON.parse(await readFile(join(root, '.zeropress-wxr/preview-data.json'), 'utf8'));
+  const data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
   assert.equal(data.content.posts.length, 3);
   assert.equal(data.site.comments.provider, 'wordpress');
   assert.equal(data.site.url, '');

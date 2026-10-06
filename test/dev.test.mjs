@@ -25,7 +25,7 @@ test('watches atomic WXR replacements and settings, and recovers from import err
   await waitFor(() => contains('/', 'Try ZeroPress'), 'Local preview did not start.', dev.output);
   assert.equal((await response('/try-your-export/')).status, 200);
   assert.equal((await response('/wordpress-export.xml')).status, 404);
-  assert.equal((await response('/.zeropress-wxr/preview-data.json')).status, 404);
+  assert.equal((await response('/.zeropress-wxr/zeropress-preview-data.json')).status, 404);
   assert.equal((await response('/wxr-import-base.json')).status, 404);
 
   await writeFile(join(root, 'replacement.xml'), wordpressExport({ slug: 'updated' }));

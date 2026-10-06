@@ -73,8 +73,9 @@ or `public/` changes. A failed import keeps the last successful preview.
 
 Site information and the comment API address are inferred from the export.
 `wxr-import-base.json` disallows crawling by default and leaves the new site URL
-empty, so no domain setup is required. Generated Preview Data lives in
-`.zeropress-wxr/`, outside the published files, and is excluded from Git.
+empty, so no domain setup is required. Generated Preview Data is written to
+`.zeropress-wxr/zeropress-preview-data.json`, outside the published files, and is
+excluded from Git.
 
 ## License
 
