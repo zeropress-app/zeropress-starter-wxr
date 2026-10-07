@@ -20,11 +20,14 @@
     "import": "zeropress-wxr-import --input ./wordpress-export.xml --base ./wxr-import-base.json --output ./.zeropress-wxr/zeropress-preview-data.json"
   },
   "dependencies": {
-    "@zeropress/build": "0.7.3",
-    "@zeropress/wxr-import": "0.7.1"
+    "@zeropress/build": "^0.7.6",
+    "@zeropress/wxr-import": "^0.7.7"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",
-    "wrangler": "4.133.0"
+    "wrangler": "4.148.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
   }
 }
