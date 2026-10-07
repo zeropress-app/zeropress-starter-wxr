@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "npm run import && zeropress-build ./theme --data ./.zeropress-wxr/zeropress-preview-data.json --public-dir ./public --out ./dist --empty-out-dir",
+    "postbuild": "npm run search:replace-with-pagefind",
+    "search:replace-with-pagefind": "node scripts/replace-search-with-pagefind.mjs",
     "preview": "npm run build && wrangler dev --local",
     "deploy": "wrangler deploy",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",
+    "pagefind": "1.5.2",
     "wrangler": "4.148.0"
   },
   "overrides": {

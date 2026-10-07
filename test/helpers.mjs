@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { cp, mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -13,11 +13,10 @@ export const project = dirname(dirname(fileURLToPath(import.meta.url)));
 export async function fixture(t, cleanup = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), 'zeropress-wxr-test-'));
   t.after(async () => { await cleanup(); await rm(root, { recursive: true, force: true }); });
-  for (const path of ['package.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json']) {
+  for (const path of ['package.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json', 'public']) {
     await cp(join(project, path), join(root, path), { recursive: true });
   }
   await symlink(join(project, 'node_modules'), join(root, 'node_modules'), 'junction');
-  await mkdir(join(root, 'public'));
   await writeFile(join(root, 'wordpress-export.xml'), wordpressExport());
   return root;
 }

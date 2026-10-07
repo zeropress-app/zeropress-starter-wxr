@@ -7,11 +7,16 @@
       "allow_indexing": false
     },
     "search": {
-      "enabled": false
+      "enabled": true
     },
     "footer": {
       "attribution": true
-    }
-  },
-  "widgets": {}
+    },
+    "archive": {
+      "enabled": true
+    },
+    "posts_per_page": 5,
+    "date_style": "medium",
+    "time_style": "none"
+  }
 }

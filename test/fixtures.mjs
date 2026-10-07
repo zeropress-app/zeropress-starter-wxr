@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-export const sample = await readFile(new URL('../wordpress-export.xml', import.meta.url), 'utf8');
+export const sample = await readFile(new URL('./fixtures/wordpress-export.xml', import.meta.url), 'utf8');
 
 export function wordpressExport({ origin = 'https://wordpress.example/blog', slug = 'try-your-export', comments = true } = {}) {
   let xml = sample.replaceAll('https://wordpress.example', origin).replaceAll('try-your-export', slug);
@@ -26,5 +26,6 @@ export function wordpressExport({ origin = 'https://wordpress.example/blog', slu
       <wp:postmeta><wp:meta_key>_wp_attachment_metadata</wp:meta_key><wp:meta_value><![CDATA[a:2:{s:5:"width";i:1200;s:6:"height";i:800;}]]></wp:meta_value></wp:postmeta>
     </item>
   </channel>`).replace('<wp:post_id>101</wp:post_id>', `<wp:post_id>101</wp:post_id>
+      <wp:postmeta><wp:meta_key>_thumbnail_id</wp:meta_key><wp:meta_value>501</wp:meta_value></wp:postmeta>
       <wp:comment><wp:comment_id>999</wp:comment_id><wp:comment_author_email>private@example.com</wp:comment_author_email><wp:comment_content>PRIVATE-EXPORTED-COMMENT</wp:comment_content></wp:comment>`);
 }

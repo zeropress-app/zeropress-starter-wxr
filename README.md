@@ -1,7 +1,12 @@
 # ZeroPress WXR Starter
 
 Try ZeroPress with an export from your WordPress site. Your posts and pages become
-a static site using the Minimal theme; images and comments stay on WordPress.
+a static site using the Blog theme from `@zeropress/create-theme`; your images
+and comments stay on WordPress.
+
+The included sample has eight posts, two pages, two authors, nested menus,
+category and monthly archives, tables, code, and small bundled illustrations.
+Search, sidebar widgets, and light and dark colors are ready to use.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zeropress-app/zeropress-starter-wxr/tree/latest)
 
@@ -64,8 +69,8 @@ or `public/` changes. A failed import keeps the last successful preview.
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Watch the export, rebuild, and serve locally |
-| `npm run build` | Convert WXR and generate the static site in `dist/` |
-| `npm run preview` | Build once and serve locally |
+| `npm run build` | Convert WXR, build the site in `dist/`, and replace search with Pagefind |
+| `npm run preview` | Build and preview the deployment output, including Pagefind |
 | `npm run deploy` | Deploy the existing `dist/` |
 | `npm run deploy:dry-run` | Build and validate deployment without uploading |
 | `npm test` | Check importing, page generation, and comments |
@@ -76,6 +81,57 @@ Site information and the comment API address are inferred from the export.
 empty, so no domain setup is required. Generated Preview Data is written to
 `.zeropress-wxr/zeropress-preview-data.json`, outside the published files, and is
 excluded from Git.
+
+## Blog settings
+
+`wxr-import-base.json` controls presentation without editing the imported
+content. The defaults enable search and monthly archives and show five posts
+per listing page. The title, description, language, authors, and content still
+come from your WXR file.
+
+The sidebar lists recent posts, categories, tags, and archives from each import.
+No sample profile or sample article links are added to your own export. To hide
+the sidebar widgets, add `"widgets": {}` at the top level of the base file. To
+customize them, start with the `widgets` object in the generated
+`.zeropress-wxr/zeropress-preview-data.json` and copy it into your base file.
+
+The header displays the imported `primary` menu with up to three levels; the
+footer displays one level. Deeper items remain in Preview Data but are omitted
+from the rendered navigation with a build warning. Edit menus in WordPress and
+export again. An export without menus still has the home link, search, and
+content-based sidebar.
+
+Edit `theme/` for layout and colors. Its WordPress comment adapter preserves
+on-demand pagination, request timeouts, and a link to the original comment page.
+The illustrations in `public/demo/` are only for the included sample articles;
+you can remove them after replacing the sample export. User media URLs are
+not rewritten or downloaded.
+
+If you give the preview its own domain, set `site.url` in the base file to that
+origin to enable canonical URLs and the sitemap. Crawling remains disabled
+until you explicitly set `site.robots.allow_indexing` to `true`.
+
+## Search
+
+Local development uses ZeroPress's built-in search. Production builds use
+[Pagefind](https://pagefind.app/) with the Blog theme's existing search dialog.
+Use `npm run preview` to check Pagefind locally.
+
+After WXR import and the site build, `postbuild` runs
+`search:replace-with-pagefind`. It generates `dist/_zeropress/pagefind/`, replaces
+`search.js` with the generated Pagefind adapter, and removes the unused
+`search.json`. Pagefind is installed with the project; no search service or API
+token is needed. If indexing fails, the build fails before adapter replacement.
+
+Pagefind indexes the marked content of published posts and pages, excluding
+navigation, sidebar text, and comments. Drafts and password-protected posts
+are not published or indexed. Pagefind uses its own ranking and language handling.
+
+Set `site.search.enabled` to `false` in `wxr-import-base.json` to disable search
+and skip Pagefind. An export without searchable content keeps an empty native
+index. To keep built-in search in production, remove `postbuild` from
+`package.json` and rebuild. You can also remove `search:replace-with-pagefind`,
+its script, and the Pagefind dependency if you no longer use them.
 
 ## License
 

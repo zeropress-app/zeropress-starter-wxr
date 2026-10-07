@@ -10,20 +10,25 @@
     data-zp-comments-order="{{comments.order}}"
     data-zp-comments-threading-enabled="{{comments.threading.enabled}}"
     data-zp-comments-threading-max-depth="{{comments.threading.max_depth}}"
+    {{#if comments.request_token}}data-zp-comments-request-token="{{comments.request_token}}"{{/if}}
     hidden
   ></div>
-  <p class="comments-source" data-zp-comments-source hidden><a target="_blank" rel="noopener noreferrer">Open comments on WordPress ↗</a></p>
+  <p class="comments-source" data-zp-comments-source hidden>
+    <a class="read-link" target="_blank" rel="noopener noreferrer">Open comments on WordPress <svg class="icon icon--inline" width="18" height="18" aria-hidden="true" focusable="false"><use href="#icon-external-link"/></svg></a>
+  </p>
   <div class="comments-lazy-sentinel" data-zp-comments-sentinel aria-hidden="true"></div>
 
   <template data-zp-comments-shell>
     <section id="comments" class="zp-comments">
       <header class="zp-comments__header">
         <div class="zp-comments__heading">
-          <h2>Comments</h2>
+          <p class="section-kicker">Conversation</p>
+          <h2>In the margins</h2>
         </div>
-        <p class="zp-comments__countline"><span data-role="count">0</span> comments</p>
+        <p class="zp-comments__countline"><span data-role="count">0</span> notes</p>
       </header>
 
+      <div class="zp-comments__identity" data-role="identity" hidden></div>
       <div class="zp-comments__feedback" data-role="feedback"></div>
       <div class="zp-comments__form-slot" data-role="form"></div>
       <div class="zp-comments__list" data-role="list"></div>
@@ -38,8 +43,8 @@
       <input type="hidden" name="parent" value="">
 
       <div class="zp-comment-form__intro">
-        <h3>Leave a comment</h3>
-        <p class="zp-comment-form__copy">Comments are saved on the original WordPress site.</p>
+        <h3>Leave a note</h3>
+        <p class="zp-comment-form__copy">Join the conversation with a thoughtful note.</p>
       </div>
 
       <div class="zp-comment-form__row">
@@ -48,7 +53,7 @@
           <input type="text" name="author_name" required autocomplete="name" placeholder="Your name">
         </label>
 
-        <label class="zp-comment-form__field">
+        <label class="zp-comment-form__field" data-role="guest-email-field">
           <span>Email</span>
           <input type="email" name="author_email" required autocomplete="email" placeholder="name@example.com">
         </label>
@@ -63,6 +68,7 @@
         <input type="text" name="website" tabindex="-1" autocomplete="off">
       </div>
 
+      <div class="zp-comment-form__verification" data-role="write-verification"></div>
       <button class="zp-comment-form__submit" type="submit">Post comment</button>
     </form>
   </template>
@@ -77,7 +83,7 @@
           <input type="text" name="author_name" required autocomplete="name" placeholder="Your name">
         </label>
 
-        <label class="zp-comment-form__field">
+        <label class="zp-comment-form__field" data-role="guest-email-field">
           <span>Email</span>
           <input type="email" name="author_email" required autocomplete="email" placeholder="name@example.com">
         </label>
@@ -92,6 +98,7 @@
         <input type="text" name="website" tabindex="-1" autocomplete="off">
       </div>
 
+      <div class="zp-comment-form__verification" data-role="write-verification"></div>
       <div class="zp-comment-form__actions">
         <button class="zp-comment-form__submit" type="submit">Post reply</button>
         <button class="zp-comment-form__secondary" type="button" data-action="cancel-reply">Cancel</button>
@@ -107,6 +114,7 @@
         <header class="zp-comment__meta">
           <div class="zp-comment__meta-line">
             <strong class="zp-comment__author" data-role="author"></strong>
+            <span class="zp-comment__author-badge" data-role="author-badge" hidden></span>
             <time class="zp-comment__date" data-role="date"></time>
           </div>
         </header>
@@ -124,14 +132,14 @@
   </template>
 
   <template data-zp-comments-empty>
-    <p class="zp-comments-empty">No comments yet. Be the first to leave a comment.</p>
+    <p class="zp-comments-empty">No comments yet. Be the first to leave a note.</p>
   </template>
 
   <template data-zp-comment-error>
-    <p class="zp-comment-error" data-role="message" role="alert"></p>
+    <p class="zp-comment-error" data-role="message"></p>
   </template>
 
   <template data-zp-comment-success>
-    <p class="zp-comment-success" data-role="message" role="status"></p>
+    <p class="zp-comment-success" data-role="message"></p>
   </template>
 </section>
