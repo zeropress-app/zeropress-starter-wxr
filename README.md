@@ -10,6 +10,22 @@ Search, sidebar widgets, and light and dark colors are ready to use.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zeropress-app/zeropress-starter-wxr/tree/latest)
 
+## Build flow
+
+Place `wordpress-export.xml` and `wxr-import-base.json` in the repository root,
+then run `npm run build`.
+
+```mermaid
+flowchart LR
+    Inputs["wordpress-export.xml<br/>+ wxr-import-base.json"]
+    Starter["ZeroPress WXR Starter"]
+    Site["Static site"]
+
+    Inputs --> Starter --> Site
+
+    style Inputs stroke-width:3px
+```
+
 ## Try your WordPress content
 
 1. Use the button to create a repository and deploy the included sample site.
