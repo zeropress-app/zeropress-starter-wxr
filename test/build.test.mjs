@@ -24,7 +24,7 @@ test('converts WordPress content offline and preserves original media, links, an
   assert.equal(data.site.comments.provider, 'wordpress');
   assert.equal(data.site.url, '');
   assert.match(html, /class="article-featured-image" src="https:\/\/wordpress\.example\/blog\/wp-content\/uploads\/2026\/09\/example\.jpg"/);
-  assert.match(html, /data-zp-comments-source/);
+  assert.doesNotMatch(html, /data-zp-comments-source/);
   const adapter = await readFile(join(root, 'dist/_zeropress/search.js'), 'utf8');
   assert.equal(adapter, await readFile(join(root, 'dist/_zeropress/search_pagefind.js'), 'utf8'));
   await readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js'));

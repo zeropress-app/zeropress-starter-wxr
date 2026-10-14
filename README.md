@@ -34,14 +34,55 @@ Each build replaces the previous generated site, including removing old pages.
   ID. Submitted comments go to WordPress and follow its moderation settings.
   Comment records in the WXR file are not published.
 
-Keep the original WordPress site and its media available. The comment API must
+Keep the media URLs and, when comments are enabled, the WordPress REST API publicly
+accessible. The WordPress admin interface can remain private. The comment API must
 allow requests from your new site's origin. WordPress also needs to allow
 [anonymous REST comments](https://developer.wordpress.org/reference/hooks/rest_allow_anonymous_comments/)
-for visitors to submit from this site. If it refuses a request, the comment area
-provides a link to the original page. No WordPress credentials are needed here.
+for visitors to submit from this site. The comment area explains request failures
+without assuming a public WordPress page exists. No WordPress credentials are needed here.
 
 The sample export has comments closed. Replacing it with an export containing
 posts with open comments enables their comment areas automatically.
+
+The Blog theme loads one page initially (50 comments by default, at most 100
+per request). **Load more** fetches subsequent pages on demand. Existing comments
+and reply drafts remain available if an additional request fails.
+Requests have a timeout, and an uncertain submission is never automatically resent.
+
+### ZeroPress Static comment writing policy
+
+The blog theme supports the ZeroPress Static WordPress plugin's runtime writing
+policy. With writing disabled, comments remain visible without a form or reply
+buttons. Enabled writing uses the plugin's PoW or Cloudflare Turnstile setting.
+Policy failures keep the list visible and offer a writing-options retry.
+
+The blog theme uses these paths on the configured WordPress API host:
+
+| Exact path | HTTP methods | Purpose |
+| --- | --- | --- |
+| `/wp-json/wp/v2/comments` | `GET`, `POST` | Read comments and submit comments or replies |
+| `/wp-json/zeropress-static/v1/comments/policy` | `GET` | Read the comment-writing policy |
+| `/wp-json/zeropress-static/v1/comments/challenge` | `POST` | Obtain comment-verification data before submission |
+
+For access-control or proxy rules, match the API hostname and each exact
+path/method pair. Query parameters such as `?post=123&page=2` are separate from
+the path and must be preserved. For a subdirectory installation, include that
+prefix in every path, for example `/blog/wp-json/wp/v2/comments`.
+
+With comment writing disabled, the theme uses only the two `GET` requests.
+Also allow `OPTIONS` on the corresponding paths when CORS preflight is needed.
+Configure WAF exceptions separately, limiting them to security rules that block
+legitimate comment requests.
+
+WordPress front-end pages need not be public. The
+`zeropress_client=theme-v1` submission marker identifies the integration rather
+than proving who sent a request. Normal WordPress authentication, moderation and
+closed-comment rules remain in force.
+
+When WordPress explicitly reports that the policy route is missing, the theme
+uses standard WordPress comment submission. Other policy errors do not enable
+writing.
+No build input or Preview Data changes are required for writing-policy updates.
 
 ## Scope
 
@@ -101,15 +142,39 @@ from the rendered navigation with a build warning. Edit menus in WordPress and
 export again. An export without menus still has the home link, search, and
 content-based sidebar.
 
-Edit `theme/` for layout and colors. Its WordPress comment adapter preserves
-on-demand pagination, request timeouts, and a link to the original comment page.
+Edit `theme/` for layout and colors. The bundled Blog theme is identical to
+the one in `@zeropress/create-theme` and Studio Starter, and supports both
+WordPress and ZeroPress Edge comments. This starter selects WordPress through
+its imported data; it does not set up Edge.
 The illustrations in `public/demo/` are only for the included sample articles;
-you can remove them after replacing the sample export. User media URLs are
-not rewritten or downloaded.
+you can remove them after replacing the sample export. Media URL rewriting is
+configured separately through `import.media_rewrites`; media files are not downloaded.
 
 If you give the preview its own domain, set `site.url` in the base file to that
 origin to enable canonical URLs and the sitemap. Crawling remains disabled
 until you explicitly set `site.robots.allow_indexing` to `true`.
+
+For explicit selection, set `import.menu_mapping` in `wxr-import-base.json`:
+
+```json
+{
+  "import": {
+    "menu_mapping": { "primary": "20", "footer": "21" }
+  }
+}
+```
+
+Values are classic WordPress `nav_menu` term IDs (`wp:term_id`) as strings. Use
+IDs from your export, not the sample IDs above. Omit the mapping to let the
+importer infer menu IDs; use `{}` to select none. Explicit selection emits only
+those slots. Custom IDs work when the theme renders them. ZeroPress Static
+manages this mapping through its menu settings and exports only selected menus.
+
+For command-line imports needing media relocation, use `import.media_rewrites`
+with `{ "from": "https://old.example/uploads/", "to": "https://media.example/uploads/" }`
+objects. Longest prefixes win once, and `[]` disables inference and rewriting.
+ZeroPress Static performs its media replacements before export, so no additional
+importer rules are needed for plugin-generated files.
 
 ## Search
 
