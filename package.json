@@ -23,14 +23,11 @@
   },
   "dependencies": {
     "@zeropress/build": "^0.7.6",
-    "@zeropress/wxr-import": "^0.7.7"
+    "@zeropress/wxr-import": "^0.7.8"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",
     "pagefind": "1.5.2",
-    "wrangler": "4.148.0"
-  },
-  "overrides": {
-    "sharp": "0.35.5"
+    "wrangler": "4.151.0"
   }
 }
