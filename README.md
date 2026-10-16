@@ -8,6 +8,11 @@ The included sample has eight posts, two pages, two authors, nested menus,
 category and monthly archives, tables, code, and small bundled illustrations.
 Search, sidebar widgets, and light and dark colors are ready to use.
 
+> [!IMPORTANT]
+> We recommend a private repository for your site's content and settings.
+> On Cloudflare's setup page, select **Create private Git repository**.
+> WordPress exports can include private data, such as commenters' email addresses.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zeropress-app/zeropress-starter-wxr/tree/latest)
 
 ## Build flow
@@ -34,9 +39,6 @@ flowchart LR
    the WXR `.xml` file.
 3. Replace `wordpress-export.xml` at the repository root with your export,
    keeping that filename. Commit and push to rebuild your site.
-
-Choose a private repository if your export contains private data, such as
-commenters' email addresses. The export itself is not served by the deployed site.
 
 To refresh the site later, replace the same XML file with a new export and push.
 Each build replaces the previous generated site, including removing old pages.
