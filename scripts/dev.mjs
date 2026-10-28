@@ -102,7 +102,7 @@ if (!npm) {
   process.exitCode = 1;
 } else {
   try {
-    const inputs = new Set(['wordpress-export.xml', 'wxr-import-base.json']);
+    const inputs = new Set(['wordpress-export.xml', 'wxr-import-base.json', 'wxr-import-base.override.json']);
     const inputWatcher = watch(root, (_event, filename) => {
       if (!filename || inputs.has(String(filename))) changed();
     });

@@ -33,7 +33,7 @@ test('converts WordPress content offline and preserves original media, links, an
   assert.equal(await readFile(join(root, 'wordpress-export.xml'), 'utf8'), source);
   assert.match(await readFile(join(root, 'dist/robots.txt'), 'utf8'), /Disallow: \//);
   for (const path of await readdir(join(root, 'dist'), { recursive: true })) {
-    assert.ok(!path.startsWith('.zeropress-wxr') && path !== 'wordpress-export.xml' && path !== 'wxr-import-base.json', `Private source file was published: ${path}`);
+    assert.ok(!path.startsWith('.zeropress-wxr') && path !== 'wordpress-export.xml' && path !== 'wxr-import-base.json' && path !== 'wxr-import-base.override.json', `Private source file was published: ${path}`);
     assert.ok(!path.endsWith('.jpg'), `WordPress media was downloaded: ${path}`);
     if (path.endsWith('.html')) {
       const document = await readFile(join(root, 'dist', path), 'utf8');
@@ -56,6 +56,56 @@ test('keeps the previous site on malformed exports and replaces old routes after
   assert.match(await readFile(join(root, 'dist/index.html'), 'utf8'), /href="\/new-export\/"/);
   await readFile(join(root, 'dist/new-export/index.html'));
   await assert.rejects(readFile(join(root, 'dist/try-your-export/index.html')), { code: 'ENOENT' });
+});
+
+test('keeps user overrides across base replacements and disables comments without an endpoint', async (t) => {
+  const root = await fixture(t);
+  const baseFile = join(root, 'wxr-import-base.json');
+  const overrideFile = join(root, 'wxr-import-base.override.json');
+  const originalBase = await readFile(baseFile, 'utf8');
+  const originalXml = await readFile(join(root, 'wordpress-export.xml'), 'utf8');
+  const override = JSON.stringify({
+    site: { title: 'Persistent site', posts_per_page: 3 },
+    comments: { enabled: false },
+    custom_css: { content: '.site-title { letter-spacing: 0.03125em; }' },
+  });
+  await writeFile(overrideFile, override);
+  let result = await build(root);
+  assert.equal(result.code, 0, result.output);
+  let data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  assert.equal(data.site.title, 'Persistent site');
+  assert.equal(data.site.posts_per_page, 3);
+  assert.equal(Object.hasOwn(data.site, 'comments'), false);
+  assert.equal(data.custom_css.content, JSON.parse(override).custom_css.content);
+  const article = await readFile(join(root, 'dist/try-your-export/index.html'), 'utf8');
+  assert.doesNotMatch(article, /data-zp-comments-target-public-id/);
+  const files = await readdir(join(root, 'dist'), { recursive: true });
+  const styles = await Promise.all(files.filter(file => file.endsWith('.css')).map(file => readFile(join(root, 'dist', file), 'utf8')));
+  assert.ok([article, ...styles].some(text => text.includes('0.03125em')), 'Custom CSS was not published');
+  assert.equal(files.includes('wxr-import-base.override.json'), false);
+  await readFile(join(root, 'dist/page/3/index.html'));
+  assert.equal(await readFile(baseFile, 'utf8'), originalBase);
+  assert.equal(await readFile(join(root, 'wordpress-export.xml'), 'utf8'), originalXml);
+  assert.equal(await readFile(overrideFile, 'utf8'), override);
+
+  const replacementBase = JSON.parse(originalBase);
+  replacementBase.site.title = 'WordPress title';
+  replacementBase.site.posts_per_page = 7;
+  await writeFile(baseFile, JSON.stringify(replacementBase));
+  result = await build(root);
+  assert.equal(result.code, 0, result.output);
+  data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  assert.equal(data.site.title, 'Persistent site');
+  assert.equal(data.site.posts_per_page, 3);
+  assert.equal(await readFile(overrideFile, 'utf8'), override);
+
+  await writeFile(overrideFile, '{}');
+  result = await build(root);
+  assert.equal(result.code, 0, result.output);
+  data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  assert.equal(data.site.title, 'WordPress title');
+  assert.equal(data.site.posts_per_page, 7);
+  assert.equal(data.site.comments.enabled, true);
 });
 
 test('renders rich WXR content, nested menus, and Blog widgets offline', async (t) => {

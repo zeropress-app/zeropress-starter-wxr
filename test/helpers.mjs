@@ -13,7 +13,7 @@ export const project = dirname(dirname(fileURLToPath(import.meta.url)));
 export async function fixture(t, cleanup = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), 'zeropress-wxr-test-'));
   t.after(async () => { await cleanup(); await rm(root, { recursive: true, force: true }); });
-  for (const path of ['package.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json', 'public']) {
+  for (const path of ['package.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json', 'wxr-import-base.override.json', 'public']) {
     await cp(join(project, path), join(root, path), { recursive: true });
   }
   await symlink(join(project, 'node_modules'), join(root, 'node_modules'), 'junction');
