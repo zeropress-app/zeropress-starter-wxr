@@ -22,12 +22,12 @@
     "import": "zeropress-wxr-import --input ./wordpress-export.xml --base ./wxr-import-base.json --output ./.zeropress-wxr/zeropress-preview-data.json"
   },
   "dependencies": {
-    "@zeropress/build": "^0.7.6",
-    "@zeropress/wxr-import": "^0.7.8"
+    "@zeropress/build": "^0.7.9",
+    "@zeropress/wxr-import": "^0.7.9"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",
     "pagefind": "1.5.2",
-    "wrangler": "4.151.0"
+    "wrangler": "^4.153.0"
   }
 }
