@@ -1,5 +1,5 @@
-import { copyFile, readFile, unlink } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { copyFile, readFile, unlink, access } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { styleText } from 'node:util';
 
 const projectRoot = new URL('../', import.meta.url);
@@ -26,9 +26,9 @@ function checkPagefind(result) {
   return result;
 }
 
-async function replaceSearchWithPagefind() {
+export async function replaceSearchWithPagefind(publicationHeader) {
   const [publication, theme] = await Promise.all([
-    readJson(new URL('.zeropress-wxr/zeropress-preview-data.json', projectRoot)),
+    publicationHeader || readPublicationHeader(),
     readJson(new URL('theme/theme.json', projectRoot)),
   ]);
   if (publication.site?.search?.enabled === false || theme.features?.search !== true) {
@@ -68,9 +68,21 @@ async function replaceSearchWithPagefind() {
   await unlink(new URL('search.json', searchDirectory));
 }
 
-try {
-  await replaceSearchWithPagefind();
-} catch (error) {
-  console.error(styleText('red', `[Pagefind] ${error.message || String(error)}`, { stream: process.stderr }));
-  process.exitCode = 1;
+async function readPublicationHeader() {
+  const manifest = new URL('.zeropress-wxr/zeropress-preview-data.manifest.json', projectRoot);
+  try { await access(manifest); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return readJson(new URL('.zeropress-wxr/zeropress-preview-data.json', projectRoot));
+  }
+  const { readPreviewDataHeader } = await import('@zeropress/build');
+  return readPreviewDataHeader(fileURLToPath(manifest));
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try { await replaceSearchWithPagefind(); }
+  catch (error) {
+    console.error(styleText('red', `[Pagefind] ${error.message || String(error)}`, { stream: process.stderr }));
+    process.exitCode = 1;
+  }
 }

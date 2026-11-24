@@ -13,7 +13,7 @@ export const project = dirname(dirname(fileURLToPath(import.meta.url)));
 export async function fixture(t, cleanup = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), 'zeropress-wxr-test-'));
   t.after(async () => { await cleanup(); await rm(root, { recursive: true, force: true }); });
-  for (const path of ['package.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json', 'wxr-import-base.override.json', 'public']) {
+  for (const path of ['package.json', 'zeropress-wxr-input-v1.json', 'scripts', 'theme', 'wrangler.jsonc', 'wxr-import-base.json', 'wxr-import-base.override.json', 'public']) {
     await cp(join(project, path), join(root, path), { recursive: true });
   }
   await symlink(join(project, 'node_modules'), join(root, 'node_modules'), 'junction');
@@ -68,4 +68,17 @@ export async function stop({ child, done }) {
     else process.kill(-child.pid, 'SIGTERM');
   } catch (error) { if (error.code !== 'ESRCH') throw error; }
   await done;
+}
+
+export async function readPublication(root) {
+  const { openPreviewDataSource } = await import('@zeropress/build');
+  const source = await openPreviewDataSource(join(root, '.zeropress-wxr/zeropress-preview-data.manifest.json'));
+  try {
+    const data = { ...source.header, content: {} };
+    for (const name of source.collections) {
+      data.content[name] = [];
+      for await (const entry of source.records(name)) data.content[name].push(entry.value);
+    }
+    return data;
+  } finally { await source.close(); }
 }

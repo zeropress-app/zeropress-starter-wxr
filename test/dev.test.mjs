@@ -29,7 +29,7 @@ test('watches atomic WXR and override replacements, and recovers from import err
   assert.ok(JSON.parse(nativeSearch.body).some(item => item.url === '/try-your-export/'));
   assert.match((await response('/_zeropress/search.js')).body, /search\.json/);
   assert.equal((await response('/wordpress-export.xml')).status, 404);
-  assert.equal((await response('/.zeropress-wxr/zeropress-preview-data.json')).status, 404);
+  assert.equal((await response('/.zeropress-wxr/zeropress-preview-data.manifest.json')).status, 404);
   assert.equal((await response('/wxr-import-base.json')).status, 404);
   assert.equal((await response('/wxr-import-base.override.json')).status, 404);
 

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { watch } from 'node:fs';
+import { watch, existsSync, lstatSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,7 @@ const npm = process.env.npm_execpath;
 const children = new Set();
 const watchers = [];
 let preview;
+let partsWatcher;
 let timer;
 let building = false;
 let dirty = true;
@@ -32,6 +33,7 @@ function stop(code) {
   process.exitCode = code;
   clearTimeout(timer);
   for (const watcher of watchers) watcher.close();
+  partsWatcher?.close();
   signalChildren('SIGTERM');
   setTimeout(() => signalChildren('SIGKILL'), 2_000).unref();
 }
@@ -58,8 +60,8 @@ async function rebuild() {
   try {
     while (dirty && !stopping) {
       dirty = false;
-      // Run the site build without production-only pre/post hooks such as Pagefind.
-      const build = start([npm, '--ignore-scripts', 'run', 'build']);
+      // Use native search for local development; Pagefind runs in production.
+      const build = start([npm, '--ignore-scripts', 'run', 'build:site']);
       const code = await new Promise((resolve) => {
         build.once('close', (code) => resolve(code ?? 1));
       });
@@ -102,8 +104,23 @@ if (!npm) {
   process.exitCode = 1;
 } else {
   try {
-    const inputs = new Set(['wordpress-export.xml', 'wxr-import-base.json', 'wxr-import-base.override.json']);
+    const inputs = new Set(['wordpress-export.manifest.json', 'wordpress-export.parts', 'wordpress-export.xml', 'wxr-import-base.json', 'wxr-import-base.override.json']);
+    const watchParts = () => {
+      partsWatcher?.close(); partsWatcher = undefined;
+      const directory = join(root, 'wordpress-export.parts');
+      try {
+        if (existsSync(directory) && lstatSync(directory).isDirectory()) {
+          partsWatcher = watch(directory, { recursive: true }, changed);
+          partsWatcher.on('error', changed);
+        }
+      } catch (error) {
+        // Directory swaps may remove the old path between stat and watch.
+        if (error.code !== 'ENOENT') throw error;
+      }
+    };
+    watchParts();
     const inputWatcher = watch(root, (_event, filename) => {
+      if (!filename || String(filename) === 'wordpress-export.parts') watchParts();
       if (!filename || inputs.has(String(filename))) changed();
     });
     watchers.push(inputWatcher);

@@ -1,9 +1,35 @@
 import assert from 'node:assert/strict';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readFile, readdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
-import { fixture, build } from './helpers.mjs';
+import { promisify } from 'node:util';
+import { fixture, build, command, readPublication } from './helpers.mjs';
 import { wordpressExport, sample } from './fixtures.mjs';
+
+test('starter preserves a single 5 MiB body through import, build and Pagefind', async t => {
+  const root = await fixture(t);
+  const original = await readFile(join(root, 'wordpress-export.xml'), 'utf8');
+  const bodyBytes = 5 * 1024 * 1024;
+  const start = '<p>capacitytoken ';
+  const end = ' endofbodytoken</p>';
+  const paddingBytes = bodyBytes - Buffer.byteLength(start + end);
+  const content = start + 'example '.repeat(Math.ceil(paddingBytes / 8)).slice(0, paddingBytes) + end;
+  assert.equal(Buffer.byteLength(content), bodyBytes);
+  const large = original.replace(/<content:encoded>[\s\S]*?<\/content:encoded>/, '<content:encoded><![CDATA[' + content + ']]></content:encoded>');
+  assert.notEqual(large, original);
+  await writeFile(join(root, 'wordpress-export.xml'), large);
+  const result = await build(root);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /CONTENT_BODY_LARGE/);
+  const data = await readPublication(root);
+  assert.equal(data.content.posts.find(p => p.public_id === 101).content, content);
+  assert.ok((await readFile(join(root, 'dist/try-your-export/index.html'), 'utf8')).includes(content));
+  await readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js'));
+  assert.equal(await readFile(join(root, 'wordpress-export.xml'), 'utf8'), large);
+  for (const name of await readdir(join(root, 'dist'), { recursive: true })) assert.doesNotMatch(name, /wordpress-export|wxr-import-base|zeropress-preview-data/);
+});
 
 test('converts WordPress content offline and preserves original media, links, and comment IDs', async (t) => {
   const root = await fixture(t);
@@ -11,6 +37,7 @@ test('converts WordPress content offline and preserves original media, links, an
   await writeFile(join(root, 'public/download.txt'), 'A public download.');
   const result = await build(root);
   assert.equal(result.code, 0, result.output);
+  assert.equal((result.output.match(/Converted WXR to ZeroPress preview-data successfully/g) || []).length, 1);
   const html = await readFile(join(root, 'dist/try-your-export/index.html'), 'utf8');
   assert.match(html, /href="https:\/\/wordpress\.example\/blog\/original\/\?ref=trial#reading"/);
   assert.match(html, /src="https:\/\/wordpress\.example\/blog\/wp-content\/uploads\/2026\/09\/example\.jpg"/);
@@ -19,7 +46,7 @@ test('converts WordPress content offline and preserves original media, links, an
   const page = await readFile(join(root, 'dist/about/index.html'), 'utf8');
   assert.match(page, /data-zp-comments-target-type="page"/);
   assert.match(page, /data-zp-comments-target-public-id="201"/);
-  const data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  const data = await readPublication(root);
   assert.equal(data.content.posts.length, 8);
   assert.equal(data.site.comments.provider, 'wordpress');
   assert.equal(data.site.url, '');
@@ -49,6 +76,7 @@ test('keeps the previous site on malformed exports and replaces old routes after
   await writeFile(join(root, 'wordpress-export.xml'), '<rss><channel>');
   const failed = await build(root);
   assert.notEqual(failed.code, 0, failed.output);
+  assert.doesNotMatch(failed.output, /Built ZeroPress site successfully|\[Pagefind\] Generating/);
   assert.equal(await readFile(join(root, 'dist/index.html'), 'utf8'), previous);
   await writeFile(join(root, 'wordpress-export.xml'), wordpressExport({ slug: 'new-export' }));
   const updated = await build(root);
@@ -72,7 +100,7 @@ test('keeps user overrides across base replacements and disables comments withou
   await writeFile(overrideFile, override);
   let result = await build(root);
   assert.equal(result.code, 0, result.output);
-  let data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  let data = await readPublication(root);
   assert.equal(data.site.title, 'Persistent site');
   assert.equal(data.site.posts_per_page, 3);
   assert.equal(Object.hasOwn(data.site, 'comments'), false);
@@ -94,7 +122,7 @@ test('keeps user overrides across base replacements and disables comments withou
   await writeFile(baseFile, JSON.stringify(replacementBase));
   result = await build(root);
   assert.equal(result.code, 0, result.output);
-  data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  data = await readPublication(root);
   assert.equal(data.site.title, 'Persistent site');
   assert.equal(data.site.posts_per_page, 3);
   assert.equal(await readFile(overrideFile, 'utf8'), override);
@@ -102,7 +130,7 @@ test('keeps user overrides across base replacements and disables comments withou
   await writeFile(overrideFile, '{}');
   result = await build(root);
   assert.equal(result.code, 0, result.output);
-  data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  data = await readPublication(root);
   assert.equal(data.site.title, 'WordPress title');
   assert.equal(data.site.posts_per_page, 7);
   assert.equal(data.site.comments.enabled, true);
@@ -123,7 +151,7 @@ test('renders rich WXR content, nested menus, and Blog widgets offline', async (
   assert.match(home, /site-nav__submenu--nested/);
   assert.match(home, /data-cmdk-open/);
   assert.match(home, /href="\/page\/2\/"/);
-  const data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  const data = await readPublication(root);
   const visitMenu = async (items) => {
     for (const item of items) {
       await readFile(join(root, 'dist', item.url.slice(1), 'index.html'));
@@ -148,17 +176,66 @@ test('renders rich WXR content, nested menus, and Blog widgets offline', async (
 });
 
 
-test('builds successfully when search is disabled in the import base', async (t) => {
+test('builds and indexes the existing publication without importing WXR again', async (t) => {
   const root = await fixture(t);
-  const file = join(root, 'wxr-import-base.json');
-  const base = JSON.parse(await readFile(file, 'utf8'));
-  base.site.search.enabled = false;
-  await writeFile(file, JSON.stringify(base));
-  const result = await build(root);
-  assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /Search is disabled; skipping replacement/);
+  const imported = await command(root, ['run', 'import']).done;
+  assert.equal(imported.code, 0, imported.output);
+  const manifestPath = join(root, '.zeropress-wxr/zeropress-preview-data.manifest.json');
+  const manifest = await readFile(manifestPath);
+  await rm(join(root, 'wordpress-export.xml'));
+
+  const { stdout, stderr } = await promisify(execFile)(process.execPath,
+    ['scripts/build-site.mjs', '--pagefind'], {
+      cwd: root,
+      env: {
+        ...process.env, CI: 'true', NO_COLOR: '1',
+        NODE_OPTIONS: `--import=${new URL('./no-network.mjs', import.meta.url).href}`,
+      },
+      timeout: 30_000,
+    });
+  assert.match(stdout, /Built ZeroPress site successfully/);
+  assert.doesNotMatch(stdout + stderr, /Converted WXR/);
+  assert.deepEqual(await readFile(manifestPath), manifest);
   assert.match(await readFile(join(root, 'dist/try-your-export/index.html'), 'utf8'), /Your WordPress content/);
+  await readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js'));
+  await assert.rejects(readFile(join(root, 'dist/_zeropress/search.json')), { code: 'ENOENT' });
 });
+
+test('Pagefind uses the captured build header after the manifest changes', async (t) => {
+  const root = await fixture(t);
+  const site = await command(root, ['run', 'build:site']).done;
+  assert.equal(site.code, 0, site.output);
+  const file = join(root, '.zeropress-wxr/zeropress-preview-data.manifest.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8'));
+  const header = structuredClone(manifest.data);
+  manifest.data.site.search = { enabled: false };
+  await writeFile(file, JSON.stringify(manifest));
+  // A completed build needs its header, not another read of its source bodies.
+  await rm(join(root, '.zeropress-wxr', manifest.generation), { recursive: true });
+  const { replaceSearchWithPagefind } = await import(pathToFileURL(join(root, 'scripts/replace-search-with-pagefind.mjs')));
+  await replaceSearchWithPagefind(header);
+  await readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js'));
+  await assert.rejects(readFile(join(root, 'dist/_zeropress/search.json')), { code: 'ENOENT' });
+});
+
+for (const setting of ['site', 'theme']) {
+  test(`builds without search artifacts when search is disabled in the ${setting}`, async (t) => {
+    const root = await fixture(t);
+    const file = join(root, setting === 'site' ? 'wxr-import-base.json' : 'theme/theme.json');
+    const config = JSON.parse(await readFile(file, 'utf8'));
+    if (setting === 'site') config.site.search.enabled = false;
+    else config.features.search = false;
+    await writeFile(file, JSON.stringify(config));
+    const result = await build(root);
+    assert.equal(result.code, 0, result.output);
+    assert.match(result.output, /Search is disabled; skipping replacement/);
+    assert.doesNotMatch(result.output, /NATIVE_SEARCH_INDEX_/);
+    for (const name of ['search.json', 'search.js', 'search_pagefind.js', 'pagefind/pagefind.js']) {
+      await assert.rejects(readFile(join(root, 'dist/_zeropress', name)), { code: 'ENOENT' });
+    }
+    assert.match(await readFile(join(root, 'dist/try-your-export/index.html'), 'utf8'), /Your WordPress content/);
+  });
+}
 
 test('adapts the Blog sidebar to a replacement export with no menus', async (t) => {
   const root = await fixture(t);
@@ -191,7 +268,7 @@ test('adapts the Blog sidebar to a replacement export with no menus', async (t) 
   const article = await readFile(join(root, 'dist', file.slice(1)), 'utf8');
   assert.match(article, /Sam Gardener/);
   assert.match(article, /The pears are ready/);
-  const data = JSON.parse(await readFile(join(root, '.zeropress-wxr/zeropress-preview-data.json'), 'utf8'));
+  const data = await readPublication(root);
   assert.deepEqual(data.content.posts.map(post => post.public_id), [901]);
   await readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js'));
 });
@@ -202,5 +279,7 @@ test('keeps an empty native index when an export has no published content', asyn
   const result = await build(root);
   assert.equal(result.code, 0, result.output);
   assert.match(result.output, /No searchable posts or pages/);
+  assert.doesNotMatch(result.output, /NATIVE_SEARCH_INDEX_/);
   assert.deepEqual(JSON.parse(await readFile(join(root, 'dist/_zeropress/search.json'), 'utf8')), []);
+  await assert.rejects(readFile(join(root, 'dist/_zeropress/pagefind/pagefind.js')), { code: 'ENOENT' });
 });
