@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "npm run import && node scripts/build-site.mjs --pagefind",
+    "build": "npm run import && node scripts/build-site.mjs --skip-search-index --pagefind",
     "build:site": "npm run import && node scripts/build-site.mjs",
     "search:replace-with-pagefind": "node scripts/replace-search-with-pagefind.mjs",
     "dist:prettify": "node scripts/prettify.mjs",

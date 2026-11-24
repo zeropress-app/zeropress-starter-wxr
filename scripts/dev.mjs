@@ -60,7 +60,7 @@ async function rebuild() {
   try {
     while (dirty && !stopping) {
       dirty = false;
-      // Use native search for local development; Pagefind runs in production.
+      // Keep native indexing in dev; production skips it before running Pagefind.
       const build = start([npm, '--ignore-scripts', 'run', 'build:site']);
       const code = await new Promise((resolve) => {
         build.once('close', (code) => resolve(code ?? 1));

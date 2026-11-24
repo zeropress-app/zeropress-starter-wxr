@@ -185,7 +185,7 @@ test('builds and indexes the existing publication without importing WXR again', 
   await rm(join(root, 'wordpress-export.xml'));
 
   const { stdout, stderr } = await promisify(execFile)(process.execPath,
-    ['scripts/build-site.mjs', '--pagefind'], {
+    ['scripts/build-site.mjs', '--skip-search-index', '--pagefind'], {
       cwd: root,
       env: {
         ...process.env, CI: 'true', NO_COLOR: '1',
@@ -201,9 +201,34 @@ test('builds and indexes the existing publication without importing WXR again', 
   await assert.rejects(readFile(join(root, 'dist/_zeropress/search.json')), { code: 'ENOENT' });
 });
 
+test('skips native indexing in production and lets Pagefind index the actual HTML', async (t) => {
+  const root = await fixture(t);
+  // Inspect native skip output before the separate Pagefind replacement.
+  const site = await command(root, ['run', 'build:site', '--', '--skip-search-index']).done;
+  assert.equal(site.code, 0, site.output);
+  assert.equal((site.output.match(/Converted WXR to ZeroPress preview-data successfully/g) || []).length, 1);
+  assert.equal((site.output.match(/NATIVE_SEARCH_INDEX_SKIPPED/g) || []).length, 1);
+  const searchDirectory = join(root, 'dist/_zeropress');
+  assert.deepEqual(JSON.parse(await readFile(join(searchDirectory, 'search.json'), 'utf8')), [{
+    id: 'zeropress:search-omitted', type: 'page', title: '', url: '/', excerpt: '',
+    headings: [], categories: [], tags: [], published_at_iso: '', updated_at_iso: '', content_text: '',
+  }]);
+  await assert.rejects(readFile(join(searchDirectory, 'pagefind/pagefind-entry.json')), { code: 'ENOENT' });
+
+  const indexed = await command(root, ['run', 'search:replace-with-pagefind']).done;
+  assert.equal(indexed.code, 0, indexed.output);
+  const entry = JSON.parse(await readFile(join(searchDirectory, 'pagefind/pagefind-entry.json'), 'utf8'));
+  const data = await readPublication(root);
+  assert.equal(Object.values(entry.languages).reduce((count, language) => count + language.page_count, 0),
+    data.content.posts.length + data.content.pages.length);
+  assert.equal(await readFile(join(searchDirectory, 'search.js'), 'utf8'),
+    await readFile(join(searchDirectory, 'search_pagefind.js'), 'utf8'));
+  await assert.rejects(readFile(join(searchDirectory, 'search.json')), { code: 'ENOENT' });
+});
+
 test('Pagefind uses the captured build header after the manifest changes', async (t) => {
   const root = await fixture(t);
-  const site = await command(root, ['run', 'build:site']).done;
+  const site = await command(root, ['run', 'build:site', '--', '--skip-search-index']).done;
   assert.equal(site.code, 0, site.output);
   const file = join(root, '.zeropress-wxr/zeropress-preview-data.manifest.json');
   const manifest = JSON.parse(await readFile(file, 'utf8'));

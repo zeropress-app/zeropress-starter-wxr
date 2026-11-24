@@ -5,7 +5,7 @@ import { replaceSearchWithPagefind } from './replace-search-with-pagefind.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = new Set(process.argv.slice(2));
-const allowed = new Set(['--pagefind']);
+const allowed = new Set(['--skip-search-index', '--pagefind']);
 let source;
 try {
   for (const arg of args) if (!allowed.has(arg)) throw new Error(`Unknown build option: ${arg}`);
@@ -15,6 +15,7 @@ try {
   const header = source.header;
   const result = await runBuildFromSource(`${root}/theme`, source, `${root}/dist`, {
     publicDir: `${root}/public`, projectRoot: root, emptyOutDir: true,
+    generateSearchIndex: !args.has('--skip-search-index'),
   });
   for (const warning of result.warnings) console.warn(`[${warning.code}] ${warning.message}`);
   console.log(`Built ZeroPress site successfully\nFiles: ${result.files.length}\nElapsed: ${Math.round(performance.now() - started)}ms`);
