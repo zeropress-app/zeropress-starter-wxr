@@ -53,13 +53,15 @@ when you want to keep writing in WordPress and publish updates to GitHub.
    content. GitHub publication updates the repository; the connected build service
    performs the deployment.
 
-After checking the site, enable **Allow search engine crawling** in the plugin's
+After checking the site, enable **Allow search engines to visit this site** in the plugin's
 Site settings if you want search engines to crawl it, then save, prepare, and
 publish again. Comments and other optional features can be configured later.
 
 For later updates, save your changes in WordPress, then prepare and publish from
 **ZeroPress → Publish** or the editor's ZeroPress publish dialog.
-Each publication replaces `wordpress-export.xml` and `wxr-import-base.json`.
+Each publication updates the WXR content input and `wxr-import-base.json`.
+ZeroPress Static 1.1.0 also supports [split WXR input](#split-wxr-input)
+with Files processing.
 Manage their content and settings in WordPress; direct edits to these files are
 replaced on the next publication.
 
@@ -145,7 +147,7 @@ After checking the live site, set `site.robots.allow_indexing` to `true` if you
 want search engines to crawl it, then rebuild and publish. You can keep the WXR
 unchanged and [customize the design](#customize-your-site) whenever you like.
 If you later have a newer export, replace the XML file and rebuild. Connecting
-ZeroPress Static later makes the plugin responsible for both input files;
+ZeroPress Static later makes the plugin responsible for the WXR content inputs and base settings;
 its publications replace them.
 
 ## Settings that survive publication
@@ -220,20 +222,147 @@ media files.
 
 ## Build flow
 
-Both workflows use `wordpress-export.xml` and `wxr-import-base.json` in the
-repository root. `npm run build` imports these files and builds the site using
-your theme.
+`npm run build` imports single XML or a complete split WXR input, together with
+`wxr-import-base.json` and the settings in `wxr-import-base.override.json`.
+Either WXR format becomes private Preview Data chunks before the theme is built.
+The WXR publishing format and these generated build chunks are independent.
 
 ```mermaid
 flowchart LR
-    Inputs["wordpress-export.xml<br/>+ wxr-import-base.json"]
-    Starter["ZeroPress WXR Starter"]
-    Site["Static site"]
-
-    Inputs --> Starter --> Site
-
-    style Inputs stroke-width:3px
+    WXR["Single XML or split WXR"] --> Import["WXR import"]
+    Settings["Base + overrides"] --> Import
+    Import --> Data["Private Preview Data chunks"]
+    Data --> Build["ZeroPress build"]
+    Theme["theme/"] --> Build
+    Build --> Site["Static site"]
 ```
+
+In `package.json`, both `build` and `build:site` explicitly run `npm run import`
+before `scripts/build-site.mjs`. If import fails, the build stops. Running the
+script directly uses existing generated Preview Data without importing again.
+
+## Split WXR input
+
+This starter accepts either `wordpress-export.xml` or a complete split export:
+`wordpress-export.manifest.json`, `wordpress-export.parts/` and the matching
+`wxr-import-base.json`. Keep the manifest, referenced parts and base together.
+If both XML and manifest exist, import stops instead of choosing potentially
+stale content. Keep exactly one WXR input format in the repository.
+`npm run import` rejects additional arguments; use `zeropress-wxr-import`
+directly for custom options.
+
+### Processing method and WXR format
+
+In ZeroPress Static 1.1.0, **Publishing data processing** controls work on the
+WordPress server. **WXR publishing format** under **GitHub publishing** controls
+the files sent to GitHub. These are separate settings.
+
+With **Files (recommended)** processing on Linux/Unix, private temporary files
+support larger publishing data, single or split XML, and pause/continue:
+
+| WXR publishing format | Behavior with Files processing |
+| --- | --- |
+| **Automatic** | Splits WXR files larger than 8 MiB, or when required by upload size or server memory. Existing split exports stay split. |
+| **Single XML** | Publishes one XML file while size and resource checks pass; it does not automatically split. |
+| **Split XML** | Uses split files even for small amounts of data. This does not mean one file per post. |
+
+**Memory** processing is available on Linux/Unix and is the only method on
+Windows/IIS. It supports single XML only, including with Automatic, and has no
+pause/continue. XML and base settings combined, and each encoded upload request,
+must fit 8 MiB; server resources may impose a lower limit. There is no automatic
+switch to Files. Select Single XML before changing an explicit Split XML setting
+to Memory. An existing split export also requires selecting Single XML explicitly
+and reviewing its replacement.
+
+Finish or cancel an unfinished publication before changing the processing method;
+verify an uncertain result first. Save the method or format change and prepare
+again. The plugin shows format transitions before publication and replaces the
+old format in one Git commit: switching to split removes XML; switching to single
+removes the verified manifest and parts. The marker and user-owned files remain.
+See the plugin's [processing and hosting requirements](https://github.com/zeropress-app/zeropress-static#export-processing)
+for detailed limits and storage requirements.
+
+### Upgrade an existing starter
+
+1. Preserve your customized `theme/`, `public/`, hosting configuration and
+   `wxr-import-base.override.json`. Set both `@zeropress/build` and
+   `@zeropress/wxr-import` to `^0.7.11` or a later compatible release.
+2. Bring in `scripts/import-wxr.mjs`, `scripts/build-site.mjs`,
+   `scripts/replace-search-with-pagefind.mjs`, `scripts/dev.mjs` and
+   `zeropress-wxr-input-v1.json` together. Copy the matching `import`, `build`
+   and `build:site` commands from `package.json` and remove the old `postbuild`
+   hook: the build coordinator now runs Pagefind itself. Update the starter
+   tests and helpers while retaining coverage for your customized theme.
+3. Update custom automation that reads the old single
+   `.zeropress-wxr/zeropress-preview-data.json`; import now writes a manifest
+   and referenced parts. Use `build:site` to build without Pagefind;
+   `--ignore-scripts` only skips npm lifecycle hooks.
+4. Run `npm install` to update the lockfile, then `npm ci` to check the locked
+   installation. Run `npm run import`, `npm run build:site`, `npm run build`
+   and `npm test` against your existing content before publishing the upgrade.
+5. Commit the verified upgrade to your publishing branch. Return to WordPress,
+   prepare again, review the format transition if shown, and publish.
+
+The marker declares capability; it does not install support. **Do not copy only
+`zeropress-wxr-input-v1.json` into an older starter.** The plugin verifies its
+exact bytes via Git metadata; hand editing it disables detection.
+
+### If preparation or publication stops
+
+Open **ZeroPress → Publish** or the editor's publishing dialog and check the
+retained status before retrying. Closing the page does not prove that a request
+stopped. An uncertain final result must be verified before cancellation, another
+publication or a processing-method change.
+
+| Message or condition | Next step |
+| --- | --- |
+| Memory processing reaches a size or resource limit | Reduce the publishing data or, on Linux/Unix, select Files and prepare again. Windows/IIS supports Memory only. More PHP memory does not raise the 8 MiB limit. |
+| A single XML is too large with Files processing | Select Automatic or Split XML and prepare again. Upgrade the complete starter first if split support is missing. |
+| The starter does not support Split XML | Upgrade as above, or select Automatic or Single XML while the single-file checks pass. |
+| A body, record or split-export limit is exceeded | Reduce the affected content or metadata. See [body limits](#large-post-or-page-bodies) and the plugin's [publishing limits](https://github.com/zeropress-app/zeropress-static#export-scope-and-limits); PHP memory does not remove fixed limits. |
+| Temporary storage or PHP resources are unavailable | Check the plugin's [hosting requirements](https://github.com/zeropress-app/zeropress-static#export-processing) with your host. Changing the WXR format alone does not change the processing method. |
+| Publication stops or runs out of time | With Files processing, use **Continue publication** when offered. Memory processing cannot resume; after confirming the job stopped before final dispatch, cancel it and prepare again. If a step repeatedly times out, ask your host about PHP and proxy time limits. |
+| Approval expired with an unfinished publication | Select **Cancel publication**, wait for cancellation to finish, then prepare again. If only the preparation expired and no publication started, prepare again directly. |
+| The split export is incomplete or modified | Restore the manifest, referenced parts and base from one complete published generation. Do not put custom files in the managed parts directory. |
+| Publication needs verification | Use **Check publication result**. If still uncertain, inspect the publishing branch and commit with the maintainer. Do not delete the journal or repeat the final branch update. |
+
+With Files processing, **Continue publication** resumes confirmed progress within
+the original ten-minute approval. Pausing or continuing does not extend approval.
+Opening the page does not resume automatically, and there is no background
+publisher. See [interrupted publication and recovery](https://github.com/zeropress-app/zeropress-static#interrupted-publication-and-recovery)
+for details.
+
+**Download WXR** always provides single XML, and **Download build settings**
+provides the base JSON. To switch a connected site back to single XML, select
+Single XML, save, prepare and publish after reviewing the transition. To return
+to manually managed XML, keep a backup, replace the complete split generation
+with the downloaded XML/base, and remove the manifest and managed parts directory.
+Merely adding XML beside the manifest fails safely. An existing saved WXR from a
+closed site still needs no plugin or PHP server.
+
+## Large post or page bodies
+
+The importer and builder warn from 256 KiB (UTF-8), without a fixed body ceiling
+in the default starter commands. Markup and inline data count; linked images
+do not. Conversion and URL replacement can increase size. Format, memory, time
+and hosting limits still apply.
+
+ZeroPress Static 1.1.0 separately limits each post or page body to **4 MiB**.
+The complete record and encoded upload must also pass transport checks. This
+plugin policy does not restrict manually managed WXR files; the starter tests
+preservation of a single 5 MiB body through import, build and Pagefind indexing.
+
+For an explicit ceiling, invoke the importer and build CLI with
+`--max-body-bytes 1048576` (1 MiB), or pass `maxBodyBytes` to their APIs.
+Set it at both stages when both should enforce the ceiling. This is an execution
+option, not an override JSON property. The starter's npm wrappers reject this
+flag; use the direct commands/APIs when customizing that policy.
+
+On a body-size error, shorten or split the content into posts/pages, or review
+an explicit CLI/API ceiling. The failed import/build preserves its previous
+output and stops before Pagefind/deployment. More PHP memory or
+`--skip-search-index` does not bypass the plugin's fixed limits.
+Base64/data-URL image support remains separate.
 
 ## Media and links
 
@@ -336,7 +465,8 @@ npm ci
 npm run dev
 ```
 
-The preview rebuilds when `wordpress-export.xml`, `wxr-import-base.json`,
+The preview rebuilds when `wordpress-export.xml`, `wordpress-export.manifest.json`,
+files in `wordpress-export.parts/`, `wxr-import-base.json`,
 `wxr-import-base.override.json`, `theme/`, or `public/` changes. A failed import
 keeps the last successful preview.
 
@@ -344,6 +474,7 @@ keeps the last successful preview.
 | --- | --- |
 | `npm run dev` | Watch the export, rebuild, and serve locally |
 | `npm run build` | Convert WXR, build the site in `dist/`, and replace search with Pagefind |
+| `npm run build:site` | Convert WXR and build with native search, without running Pagefind |
 | `npm run preview` | Build and preview the deployment output, including Pagefind |
 | `npm run dist:preview` | Preview the existing `dist/` locally without rebuilding |
 | `npm run dist:prettify` | Format the built HTML for easier reading |
@@ -361,8 +492,15 @@ Site information and the comment API address come from the export and base
 settings. The bundled sample `wxr-import-base.json` disallows crawling and leaves
 the new site URL empty, so no domain setup is required for local preview.
 Generated Preview Data is written to
-`.zeropress-wxr/zeropress-preview-data.json`, outside the published files, and is
-excluded from Git.
+`.zeropress-wxr/zeropress-preview-data.manifest.json` with referenced JSON arrays in
+`.zeropress-wxr/zeropress-preview-data.parts/`. These private build inputs are excluded
+from Git and never copied to `dist/`. The build reads one captured generation instead
+of a single large JSON string. Do not concatenate the parts or edit generated files.
+
+Previous generations remain for readers already using them. When all local builds and
+previews have stopped, removing `.zeropress-wxr/` is safe; the next import recreates it.
+Do not remove generations during a build. Chunking reduces body memory but still uses
+metadata memory and temporary disk space; it does not remove GitHub or hosting limits.
 
 ## Blog settings
 
@@ -381,8 +519,9 @@ from the base settings where supported.
 The sidebar lists recent posts, categories, tags, and archives from each import.
 No sample profile or sample article links are added to your own export. To hide
 the sidebar widgets, add `"widgets": {}` at the top level of the base file. To
-customize them, start with the `widgets` object in the generated
-`.zeropress-wxr/zeropress-preview-data.json` and copy it into your base file.
+customize them, copy `data.widgets` from the generated
+`.zeropress-wxr/zeropress-preview-data.manifest.json` into your base file's
+top-level `widgets` property.
 
 The header displays the imported `primary` menu with up to three levels; the
 footer displays one level. Deeper items remain in Preview Data but are omitted
@@ -445,8 +584,16 @@ Local development uses ZeroPress's built-in search. Production builds use
 [Pagefind](https://pagefind.app/) with the Blog theme's existing search dialog.
 Use `npm run preview` to check Pagefind locally.
 
-After WXR import and the site build, `postbuild` runs
-`search:replace-with-pagefind`. It generates `dist/_zeropress/pagefind/`, replaces
+`npm run build` imports WXR, then runs `scripts/build-site.mjs` with
+`--skip-search-index --pagefind` to avoid indexing the same content twice.
+When searchable content exists, the builder writes a small, non-searchable
+placeholder in `search.json` and prints
+`NATIVE_SEARCH_INDEX_SKIPPED`. This warning is expected: the next step supplies
+Pagefind search. It does not disable the search dialog.
+
+After the site build, `build-site.mjs` runs Pagefind using the same captured
+publication settings. `npm run search:replace-with-pagefind` remains available
+for manually processing existing output. It generates `dist/_zeropress/pagefind/`, replaces
 `search.js` with the generated Pagefind adapter, and removes the unused
 `search.json`. Pagefind is installed with the project; no search service or API
 token is needed. If indexing fails, the build fails before adapter replacement.
@@ -455,13 +602,25 @@ Pagefind indexes the marked content of published posts and pages, excluding
 navigation, sidebar text, and comments. Drafts and password-protected posts
 are not published or indexed. Pagefind uses its own ranking and language handling.
 
-With ZeroPress Static, turn off **Enable search** in the plugin settings and
+With ZeroPress Static, turn off **Enable search on the static site** in the plugin settings and
 publish again to disable search and skip Pagefind. For manual exports, set
 `site.search.enabled` to `false` in `wxr-import-base.json`.
-An export without searchable content keeps an empty native index.
-To keep built-in search in production, remove `postbuild` from
-`package.json` and rebuild. You can also remove `search:replace-with-pagefind`,
-its script, and the Pagefind dependency if you no longer use them.
+Search disabled in the site settings or theme takes precedence over
+`--skip-search-index`: no search files are generated and Pagefind is skipped.
+An export without searchable content keeps an empty native index (`[]`) and
+skips Pagefind without an indexing warning.
+
+`npm run dev` uses `build:site` without the skip option, so it retains native
+search. Native indexing warns at 2 MiB and is omitted at 5 MiB or more than
+5,000 searchable posts and pages; omitted indexing returns no matches.
+Use `npm run preview` to check Pagefind on larger sites.
+
+To keep built-in search in production, change `build` in `package.json` to
+`"npm run build:site"`, removing both `--skip-search-index` and `--pagefind`.
+Then rebuild. Removing only `--pagefind` would leave the non-searchable
+placeholder. The native indexing limits still apply. You can also remove
+`search:replace-with-pagefind`, its script, and the Pagefind dependency if you
+no longer use them.
 
 ## Optional HTML processing
 
